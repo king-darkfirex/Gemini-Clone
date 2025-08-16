@@ -17,7 +17,7 @@ const ContextProvider = ({ children }) => {
       setGeminiOutput("");
       setShowResult(true);
       setRecentPrompt(userInput);
-      
+
       const Input = userInput;
       try {
         setUserInput("");
