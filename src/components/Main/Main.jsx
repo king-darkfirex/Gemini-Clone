@@ -1,25 +1,10 @@
-import React, { useState } from 'react';
+import React, { use, useContext, useState } from 'react';
 import './Main.css';
 import { assets } from '../../assets/assets';
-import { getGeminiResponse } from '../../config/gemini'; // adjust path if needed
+import { GeminiContext } from '../../context/GeminiContext';
 
 const Main = () => {
-  const [userInput, setUserInput] = useState("");
-  const [geminiOutput, setGeminiOutput] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSend = async () => {
-    if (!userInput.trim()) return;
-    setLoading(true);
-    try {
-      const response = await getGeminiResponse(userInput);
-      setGeminiOutput(response);
-    } catch (err) {
-      console.error("Error:", err);
-      setGeminiOutput("Error getting response from Gemini API.");
-    }
-    setLoading(false);
-  };
+  const {handleSend,recentPrompt,showResult,loading,userInput,geminiOutput,setUserInput } = useContext(GeminiContext);
 
   return (
     <div className='main'>
@@ -29,48 +14,68 @@ const Main = () => {
       </div>
 
       <div className="main-container">
-        <div className="greet">
-          <p><span>Hello, Tanmay</span></p>
-          <p>How can I help you today?</p>
-        </div>
+        {!showResult ? 
+            <>
+              <div className="greet">
+                <p><span>Hello, Tanmay</span></p>
+                <p>How can I help you today?</p>
+              </div>
 
-        {/* Loading and Response */}
-        {loading && <p>Loading...</p>}
-        {!loading && geminiOutput && (
-          <div className="response-box">
-            <p>{geminiOutput}</p>
-          </div>
-        )}
+              <div className="cards">
+                <div className="card">
+                  <p>Suggest some beautiful songs to listen on a road trip</p>
+                  <img src={assets.compass_icon} alt="" />
+                </div>
 
-        <div className="cards">
-          <div className="card">
-            <p>Suggest some beautiful songs to listen on a road trip</p>
-            <img src={assets.compass_icon} alt="" />
-          </div>
+                <div className="card">
+                  <p>Briefly summarise this concept: Urban Planning</p>
+                  <img src={assets.bulb_icon} alt="" />
+                </div>
 
-          <div className="card">
-            <p>Briefly summarise this concept: Urban Planning</p>
-            <img src={assets.bulb_icon} alt="" />
-          </div>
+                <div className="card">
+                  <p>Brainstorm team bonding activities for our work retreat</p>
+                  <img src={assets.message_icon} alt="" />
+                </div>
 
-          <div className="card">
-            <p>Brainstorm team bonding activities for our work retreat</p>
-            <img src={assets.message_icon} alt="" />
-          </div>
+                <div className="card">
+                  <p>Improve the readability of the following code</p>
+                  <img src={assets.code_icon} alt="" />
+                </div>
+              </div>
+            </> 
+          :
+            <div className="response-box">
+              <div className="result-title">
+                <img src={assets.user_icon} alt="" />
+                <div className="prompt">
+                    <p>{recentPrompt}</p>
+                </div>
+              </div>
 
-          <div className="card">
-            <p>Improve the readability of the following code</p>
-            <img src={assets.code_icon} alt="" />
-          </div>
-        </div>
+              <div className="result-data">
+                <img src={assets.gemini_icon} alt="" />
+                {/*Loading State*/}
+                {loading ? 
+                  <div className="loader">
+                    <hr />
+                    <hr />
+                    <hr />
+                  </div>
+                  :<p dangerouslySetInnerHTML={{__html:geminiOutput}}></p>
+                }
+
+              </div>
+            </div>
+          }
+
 
         <div className="main-bottom">
           <div className="search-box">
             <input
               type="text"
               placeholder='Enter a prompt here'
-              value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
+              value={userInput}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             />
             <div>
@@ -79,7 +84,7 @@ const Main = () => {
               <img
                 src={assets.send_icon}
                 alt="send"
-                onClick={handleSend}
+                onClick={() => handleSend}
                 style={{ cursor: "pointer" }}
               />
             </div>
@@ -94,5 +99,6 @@ const Main = () => {
     </div>
   );
 };
+
 
 export default Main;
