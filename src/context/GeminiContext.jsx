@@ -11,6 +11,10 @@ const ContextProvider = ({ children }) => {
     const[showResult, setShowResult] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    const typerEffect = (indexNo,nextWord) =>{
+
+    }
+
     const handleSend = async () => {
       if (!userInput.trim()) return;
       setLoading(true);
