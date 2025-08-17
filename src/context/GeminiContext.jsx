@@ -76,9 +76,9 @@ const ContextProvider = ({ children }) => {
     stopTyping();
   };
 
-  const handleSend = async () => {
-    const text = userInput.trim();
-    if (!text) return;
+  const handleSend = async (customPrompt) => {
+    const prompt = customPrompt || userInput; // use customPrompt if provided
+    if (!prompt.trim()) return;
 
     setLoading(true);
     setShowResult(true);
@@ -89,9 +89,9 @@ const ContextProvider = ({ children }) => {
         if (chat.id !== activeChatId) return chat;
         const updated = {
           ...chat,
-          messages: [...chat.messages, { role: 'user', text }]
+          messages: [...chat.messages, { role: 'user', prompt }]
         };
-        return setActiveChatTitleIfNeeded(updated, text);
+        return setActiveChatTitleIfNeeded(updated, prompt);
       })
     );
 
@@ -100,14 +100,14 @@ const ContextProvider = ({ children }) => {
 
     try {
       // 2) Get AI response
-      const response = await getGeminiResponse(text);
+      const response = await getGeminiResponse(prompt);
       setGeminiOutput(response); // triggers typing effect
 
       // 3) Append AI message to active chat
       setChats(prevChats =>
         prevChats.map(chat =>
           chat.id === activeChatId
-            ? { ...chat, messages: [...chat.messages, { role: 'ai', text: response }] }
+            ? { ...chat, messages: [...chat.messages, { role: 'ai', prompt: response }] }
             : chat
         )
       );
@@ -118,7 +118,7 @@ const ContextProvider = ({ children }) => {
       setChats(prevChats =>
         prevChats.map(chat =>
           chat.id === activeChatId
-            ? { ...chat, messages: [...chat.messages, { role: 'ai', text: fallback }] }
+            ? { ...chat, messages: [...chat.messages, { role: 'ai', prompt: fallback }] }
             : chat
         )
       );

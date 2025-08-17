@@ -28,22 +28,27 @@ const Main = () => {
 
               <div className="cards">
                 <div className="card">
-                  <p>Suggest some beautiful songs to listen on a road trip</p>
+                  <p onClick={() =>{
+                    handleSend("Summarize the book 'Atomic Habits'")}}>
+                    📚 Summarize the book 'Atomic Habits'</p>
                   <img src={assets.compass_icon} alt="" />
                 </div>
 
                 <div className="card">
-                  <p>Briefly summarise this concept: Urban Planning</p>
+                  <p onClick={() => {handleSend("Write a professional email for a job application")}}>
+                    📝 Write a professional email for a job application</p>
                   <img src={assets.bulb_icon} alt="" />
                 </div>
 
                 <div className="card">
-                  <p>Brainstorm team bonding activities for our work retreat</p>
+                  <p onClick={()=>{handleSend("What are the latest trends in web development")}}>
+                      💻 What are the latest trends in web development?</p>
                   <img src={assets.message_icon} alt="" />
                 </div>
 
                 <div className="card">
-                  <p>Improve the readability of the following code</p>
+                  <p onClick={()=>{handleSend("Plan a 3-day budget trip to Goa")}}>
+                    🌍 Plan a 3-day budget trip to Goa</p>
                   <img src={assets.code_icon} alt="" />
                 </div>
               </div>
