@@ -16,6 +16,7 @@ const ContextProvider = ({ children }) => {
   const [geminiOutput, setGeminiOutput] = useState(''); // full text, if you still use it
   const [showResult, setShowResult] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [recentPrompt, setRecentPrompt] = useState('');
 
   // ----- Typing effect -----
   const [typedOutput, setTypedOutput] = useState('');
@@ -49,7 +50,9 @@ const ContextProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (geminiOutput) startTyping(geminiOutput);
+    if (geminiOutput){
+      startTyping(geminiOutput);
+    }
   }, [geminiOutput]);
 
   useEffect(() => {
@@ -59,7 +62,7 @@ const ContextProvider = ({ children }) => {
   // Helpers
   const setActiveChatTitleIfNeeded = (chat, firstPrompt) => {
     if (chat.title === 'New Chat' && firstPrompt) {
-      return { ...chat, title: firstPrompt.slice(0, 32) };
+      return { ...chat, title: firstPrompt.slice(0, 28) };
     }
     return chat;
   };
@@ -82,6 +85,8 @@ const ContextProvider = ({ children }) => {
 
     setLoading(true);
     setShowResult(true);
+    setGeminiOutput("");
+    setRecentPrompt(userInput);
 
     // 1) Append user message and title (if first)
     setChats(prevChats =>
@@ -97,7 +102,6 @@ const ContextProvider = ({ children }) => {
 
     // clear input for UI
     setUserInput('');
-
     try {
       // 2) Get AI response
       const response = await getGeminiResponse(prompt);
@@ -145,7 +149,7 @@ const ContextProvider = ({ children }) => {
     loading,
     showResult,
     typedOutput,
-    geminiOutput, // keep if you still use it elsewhere
+    recentPrompt,
   };
 
   return (
