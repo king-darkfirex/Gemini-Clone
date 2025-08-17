@@ -2,9 +2,11 @@ import React, { use, useContext, useState } from 'react';
 import './Main.css';
 import { assets } from '../../assets/assets';
 import { GeminiContext } from '../../context/GeminiContext';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const Main = () => {
-  const {handleSend,recentPrompt,showResult,loading,userInput,geminiOutput,setUserInput } = useContext(GeminiContext);
+  const {handleSend,recentPrompt,showResult,loading,userInput,typedOutput,setUserInput } = useContext(GeminiContext);
 
   return (
     <div className='main'>
@@ -64,9 +66,9 @@ const Main = () => {
                     <hr />
                   </div>
                 ) : (
-                  <div className="response">
-                    <p dangerouslySetInnerHTML={{ __html: geminiOutput }}></p>
-                  </div>
+                    <div className="md">
+                      <ReactMarkdown>{typedOutput}</ReactMarkdown>
+                    </div>
                 )}
               </div>
             </div>
