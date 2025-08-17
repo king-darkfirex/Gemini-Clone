@@ -1,98 +1,158 @@
-import React, { useState, createContext, useEffect, useRef}from 'react'
-import { getGeminiResponse } from '../config/Gemini'; 
+import React, { useState, createContext, useEffect, useRef } from 'react';
+import { getGeminiResponse } from '../config/Gemini';
 
 export const GeminiContext = createContext();
 
 const ContextProvider = ({ children }) => {
-    const [userInput, setUserInput] = useState("");
-    const [geminiOutput, setGeminiOutput] = useState("");
-    const [recentPrompt, setRecentPrompt] = useState("");
-    const [prevPrompts, setPrevPrompts] = useState([]);
-    const [showResult, setShowResult] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [typedOutput, setTypedOutput] = useState("");
+  // ----- Multi-chat state -----
+  const firstIdRef = useRef(Date.now());
+  const [chats, setChats] = useState([
+    { id: firstIdRef.current, title: 'New Chat', messages: [] }
+  ]);
+  const [activeChatId, setActiveChatId] = useState(firstIdRef.current);
 
-    const intervalRef = useRef(null);
+  // ----- UI / input state you already had -----
+  const [userInput, setUserInput] = useState('');
+  const [geminiOutput, setGeminiOutput] = useState(''); // full text, if you still use it
+  const [showResult, setShowResult] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-    const startTyping = (text, speed = 15) => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+  // ----- Typing effect -----
+  const [typedOutput, setTypedOutput] = useState('');
+  const intervalRef = useRef(null);
 
-      setTypedOutput("");
-
-      // Use -1 so that the very first increment (0) correctly starts at text[0]
-      let index = -1;
-
-      intervalRef.current = setInterval(() => {
-        // Guard: stop typing if text is empty/null
-        if (!text || index >= text.length - 1) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-          return;
-        }
-
-        index++;
-        setTypedOutput((prev) => prev + text[index]);
-      }, speed);
-    };
-
-    // Whenever geminiOutput changes, auto trigger typing
-    useEffect(() => {
-    if (geminiOutput) {
-      startTyping(geminiOutput);
+  const stopTyping = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
+  };
+
+  // Safe, readable typing effect: pre-increment from -1
+  const startTyping = (text, speed = 15) => {
+    stopTyping();               // clear any previous interval
+    setTypedOutput('');         // reset display
+
+    let index = -1;             // using -1 so first tick becomes 0
+    intervalRef.current = setInterval(() => {
+      if (!text) {
+        stopTyping();
+        return;
+      }
+      index++;                  // first run -> 0
+      if (index < text.length) {
+        setTypedOutput(prev => prev + text[index]);
+      } else {
+        stopTyping();           // finished cleanly, no "undefined"
+      }
+    }, speed);
+  };
+
+  useEffect(() => {
+    if (geminiOutput) startTyping(geminiOutput);
   }, [geminiOutput]);
 
+  useEffect(() => {
+    return () => stopTyping();  // cleanup on unmount
+  }, []);
 
-
-    useEffect(() => {
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
-    }, []);
-
-    const handleSend = async () => {
-      if (!userInput.trim()) return;
-      setLoading(true);
-      setGeminiOutput("");
-      setShowResult(true);
-      setRecentPrompt(userInput);
-
-      const Input = userInput;
-      try {
-        setUserInput("");
-        const response = await getGeminiResponse(Input);
-        setGeminiOutput(response);
-      } catch (err) {
-        console.error("Error:", err);
-        setGeminiOutput("Error getting response from Gemini API.");
-      }
-      setLoading(false);
-    };
-
-    
-    const contextValue = {
-      userInput,
-      setUserInput,
-      geminiOutput, 
-      recentPrompt,
-      setRecentPrompt,
-      prevPrompts,
-      setPrevPrompts,
-      showResult,
-      loading,
-      handleSend,
-      typedOutput
+  // Helpers
+  const setActiveChatTitleIfNeeded = (chat, firstPrompt) => {
+    if (chat.title === 'New Chat' && firstPrompt) {
+      return { ...chat, title: firstPrompt.slice(0, 32) };
     }
+    return chat;
+  };
 
-    return (
-      <GeminiContext.Provider value={contextValue}>
-        {children}
-      </GeminiContext.Provider>
+  const handleNewChat = () => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    const newChat = { id, title: 'New Chat', messages: [] };
+    setChats(prev => [...prev, newChat]);
+    setActiveChatId(id);
+    setShowResult(false);
+    setUserInput('');
+    setGeminiOutput('');
+    setTypedOutput('');
+    stopTyping();
+  };
+
+  const handleSend = async () => {
+    const text = userInput.trim();
+    if (!text) return;
+
+    setLoading(true);
+    setShowResult(true);
+
+    // 1) Append user message and title (if first)
+    setChats(prevChats =>
+      prevChats.map(chat => {
+        if (chat.id !== activeChatId) return chat;
+        const updated = {
+          ...chat,
+          messages: [...chat.messages, { role: 'user', text }]
+        };
+        return setActiveChatTitleIfNeeded(updated, text);
+      })
     );
+
+    // clear input for UI
+    setUserInput('');
+
+    try {
+      // 2) Get AI response
+      const response = await getGeminiResponse(text);
+      setGeminiOutput(response); // triggers typing effect
+
+      // 3) Append AI message to active chat
+      setChats(prevChats =>
+        prevChats.map(chat =>
+          chat.id === activeChatId
+            ? { ...chat, messages: [...chat.messages, { role: 'ai', text: response }] }
+            : chat
+        )
+      );
+    } catch (err) {
+      console.error('Gemini error:', err);
+      const fallback = 'Error getting response from Gemini API.';
+      setGeminiOutput(fallback);
+      setChats(prevChats =>
+        prevChats.map(chat =>
+          chat.id === activeChatId
+            ? { ...chat, messages: [...chat.messages, { role: 'ai', text: fallback }] }
+            : chat
+        )
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Derived helper to get the active chat quickly in your Main
+  const activeChat = chats.find(c => c.id === activeChatId);
+
+  const contextValue = {
+    // Chat system
+    chats,
+    activeChatId,
+    setActiveChatId,
+    activeChat,
+    handleNewChat,
+
+    // Typing / API
+    userInput,
+    setUserInput,
+    handleSend,
+    loading,
+    showResult,
+    typedOutput,
+    geminiOutput, // keep if you still use it elsewhere
+  };
+
+  return (
+    <GeminiContext.Provider value={contextValue}>
+      {children}
+    </GeminiContext.Provider>
+  );
 };
 
-export default ContextProvider
+export default ContextProvider;
