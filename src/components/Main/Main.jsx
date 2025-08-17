@@ -12,7 +12,7 @@ const Main = () => {
     <div className='main'>
       <div className="nav">
         <div className="Gemini">
-          <img src={assets.gemini_icon} alt="" />
+          <img src={assets.gemini_icon} alt="" onClick={() => window.location.href = "/"} />
           <p>Gemini</p>
         </div>
         <img src={assets.user_icon} alt="" />
@@ -61,19 +61,19 @@ const Main = () => {
           (
           // The Multi-chat Chatbox
           <div className="chat-box">
-            {activeChat.messages.map((msg, index) => (
-              msg.role === "user" ? (
-                <div key={index} className="user-message">
+            {activeChat.messages.map((msg) => (
+              msg.sender === "user" ? (
+                <div key={msg.id} className="user-message">
                   <img src={assets.user_icon} alt="user" />
                   <div className="prompt">
-                    <p>{msg.prompt}</p>
+                    <p>{msg.text}</p>
                   </div>
                 </div>
               ) : (
-                <div key={index} className="gemini-message">
+                <div key={msg.id} className="gemini-message">
                   <img src={assets.gemini_icon} alt="Gemini" />
-                  <div className="md">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.prompt}</ReactMarkdown>
+                  <div className="chat md">
+                    <ReactMarkdown  remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                   </div>
                 </div>
                 )
@@ -82,7 +82,6 @@ const Main = () => {
             {loading && (
                     <div className="loader">
                       <img src={assets.gemini_icon} alt="Gemini" />
-
                       <div className ="loading-bars">
                           <hr />
                       <hr />

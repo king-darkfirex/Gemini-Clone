@@ -23,7 +23,7 @@ const Sidebar = () => {
           alt="Menu Icon"
         />
 
-        <div className="new-chat" onClick={handleNewChat} style={{ cursor: 'pointer' }}>
+        <div className="new-chat" onClick={handleNewChat}>
           <img src={assets.plus_icon} alt="New chat" />
           {extended ? <p>New Chat</p> : null}
         </div>

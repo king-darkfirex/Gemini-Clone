@@ -3,24 +3,24 @@ import { getGeminiResponse } from '../config/Gemini';
 
 export const GeminiContext = createContext();
 
+const genId = () => Date.now() + Math.floor(Math.random() * 1000000);
+
 const ContextProvider = ({ children }) => {
-  // ----- Multi-chat state -----
+  // --- Multi-chat state ---
   const firstIdRef = useRef(Date.now());
-  const [chats, setChats] = useState([
-    { id: firstIdRef.current, title: 'New Chat', messages: [] }
-  ]);
+  const [chats, setChats] = useState([]);
+
   const [activeChatId, setActiveChatId] = useState(firstIdRef.current);
 
-  // ----- UI / input state you already had -----
+  // --- UI state ---
   const [userInput, setUserInput] = useState('');
-  const [geminiOutput, setGeminiOutput] = useState(''); // full text, if you still use it
   const [showResult, setShowResult] = useState(false);
   const [loading, setLoading] = useState(false);
   const [recentPrompt, setRecentPrompt] = useState('');
 
-  // ----- Typing effect -----
-  const [typedOutput, setTypedOutput] = useState('');
+  // --- typing control ---
   const intervalRef = useRef(null);
+  const [typedOutput, setTypedOutput] = useState('');
 
   const stopTyping = () => {
     if (intervalRef.current) {
@@ -29,37 +29,38 @@ const ContextProvider = ({ children }) => {
     }
   };
 
-  // Safe, readable typing effect: pre-increment from -1
-  const startTyping = (text, speed = 15) => {
-    stopTyping();               // clear any previous interval
-    setTypedOutput('');         // reset display
+  // Type into a specific message of a specific chat
+  const startTyping = (fullText, chatId, messageId, speed = 15) => {
+    stopTyping();
+    if (!fullText) return;
 
-    let index = -1;             // using -1 so first tick becomes 0
+    setTypedOutput('');
+
+    let i = 0;
     intervalRef.current = setInterval(() => {
-      if (!text) {
-        stopTyping();
-        return;
-      }
-      index++;                  // first run -> 0
-      if (index < text.length) {
-        setTypedOutput(prev => prev + text[index]);
+      if (i < fullText.length) {
+        const ch = fullText[i];
+        setChats(prev =>
+          prev.map(chat =>
+            chat.id === chatId
+              ? {
+                  ...chat,
+                  messages: chat.messages.map(m =>
+                    m.id === messageId ? { ...m, text: m.text + ch} : m
+                  )
+                }
+              : chat
+          )
+        );
+        i += 1;
       } else {
-        stopTyping();           // finished cleanly, no "undefined"
+        stopTyping();
       }
     }, speed);
   };
 
-  useEffect(() => {
-    if (geminiOutput){
-      startTyping(geminiOutput);
-    }
-  }, [geminiOutput]);
+  useEffect(() => () => stopTyping(), []);
 
-  useEffect(() => {
-    return () => stopTyping();  // cleanup on unmount
-  }, []);
-
-  // Helpers
   const setActiveChatTitleIfNeeded = (chat, firstPrompt) => {
     if (chat.title === 'New Chat' && firstPrompt) {
       return { ...chat, title: firstPrompt.slice(0, 28) };
@@ -68,74 +69,106 @@ const ContextProvider = ({ children }) => {
   };
 
   const handleNewChat = () => {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
+    const id = genId();
     const newChat = { id, title: 'New Chat', messages: [] };
     setChats(prev => [...prev, newChat]);
     setActiveChatId(id);
     setShowResult(false);
     setUserInput('');
-    setGeminiOutput('');
-    setTypedOutput('');
     stopTyping();
   };
 
   const handleSend = async (customPrompt) => {
-    const prompt = customPrompt || userInput; // use customPrompt if provided
-    if (!prompt.trim()) return;
+    const prompt = (customPrompt ?? userInput).trim();
+    if (!prompt) return;
 
-    setLoading(true);
-    setShowResult(true);
-    setGeminiOutput("");
-    setRecentPrompt(userInput);
+    const currentChatId = activeChatId;
 
-    // 1) Append user message and title (if first)
-    setChats(prevChats =>
-      prevChats.map(chat => {
-        if (chat.id !== activeChatId) return chat;
+    // 1) append USER message
+    setChats(prev =>
+      prev.map(chat => {
+        if (chat.id !== currentChatId) return chat;
         const updated = {
           ...chat,
-          messages: [...chat.messages, { role: 'user', prompt }]
+          messages: [
+            ...chat.messages,
+            { id: genId(), sender: 'user', text: prompt }
+          ]
         };
         return setActiveChatTitleIfNeeded(updated, prompt);
       })
     );
 
-    // clear input for UI
     setUserInput('');
-    try {
-      // 2) Get AI response
-      const response = await getGeminiResponse(prompt);
-      setGeminiOutput(response); // triggers typing effect
+    setShowResult(true);
+    setLoading(true);
 
-      // 3) Append AI message to active chat
-      setChats(prevChats =>
-        prevChats.map(chat =>
-          chat.id === activeChatId
-            ? { ...chat, messages: [...chat.messages, { role: 'ai', prompt: response }] }
-            : chat
-        )
-      );
-    } catch (err) {
-      console.error('Gemini error:', err);
+    // 2) append AI placeholder message we will type into
+    const botMsgId = genId();
+    setChats(prev =>
+      prev.map(chat =>
+        chat.id === currentChatId
+          ? {
+              ...chat,
+              messages: [
+                ...chat.messages,
+                { id: botMsgId, sender: 'ai', text: ''}
+              ]
+            }
+          : chat
+      )
+    );
+
+    try {
+      // 3) fetch AI response
+      const response = await getGeminiResponse(prompt);
+
+      // 4) start typing into that placeholder
+      startTyping(response || '', currentChatId, botMsgId, 15);
+    } catch (e) {
       const fallback = 'Error getting response from Gemini API.';
-      setGeminiOutput(fallback);
-      setChats(prevChats =>
-        prevChats.map(chat =>
-          chat.id === activeChatId
-            ? { ...chat, messages: [...chat.messages, { role: 'ai', prompt: fallback }] }
-            : chat
-        )
-      );
+      // type the error so UI behavior is consistent
+      startTyping(fallback, currentChatId, botMsgId, 15);
+      console.error(e);
     } finally {
+      // loader shows only during fetch (optional)
       setLoading(false);
     }
   };
 
-  // Derived helper to get the active chat quickly in your Main
   const activeChat = chats.find(c => c.id === activeChatId);
 
+  // Load chats on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("chats");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setChats(parsed);
+        if (parsed.length > 0) setActiveChatId(parsed[0].id);
+      } catch (err) {
+        console.error("Error parsing saved chats:", err);
+        setChats([]);
+      }
+    } else {
+      // If nothing in storage, create one default chat
+      const firstId = Date.now();
+      const defaultChat = { id: firstId, title: "New Chat", messages: [] };
+      setChats([defaultChat]);
+      setActiveChatId(firstId);
+    }
+  }, []);
+
+
+  // Save chats whenever they change
+  useEffect(() => {
+    if (chats.length > 0) {
+      localStorage.setItem("chats", JSON.stringify(chats));
+    }
+  }, [chats]);
+
+
   const contextValue = {
-    // Chat system
     chats,
     activeChatId,
     setActiveChatId,
@@ -148,8 +181,6 @@ const ContextProvider = ({ children }) => {
     handleSend,
     loading,
     showResult,
-    typedOutput,
-    recentPrompt,
   };
 
   return (

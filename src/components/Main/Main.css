@@ -133,7 +133,7 @@
 }
 
 .chat-box{
-    padding: 0px, 5%;
+    padding: 0px 5%;
     max-height: 70vh;
     overflow-y: scroll;
 }
@@ -142,7 +142,7 @@
     display: none;
 }
 
-.user-message {
+.chat-box .user-message {
     margin: 40px 0;
     display: flex;
     justify-content: flex-end; 
@@ -150,13 +150,13 @@
     gap: 15px;
 }
 
-.user-message img {
+.chat-box .user-message img {
     width: 40px;
     border-radius: 50%;
     object-fit: cover;
 }
 
-.user-message .prompt {
+.chat-box .user-message .prompt {
     max-width: 65%; 
     padding: 10px 15px;
     border-radius: 12px 12px 0px 12px; 
